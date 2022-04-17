@@ -10,20 +10,25 @@ LogBox.ignoreLogs(["Setting a timer"])
 
 const HomeScreen = () => {
 
+    const scanIntructions = ["Close left eye", "Close right eye", "Close both eyes", "Smile"];
+
     const [hasCameraPermission, setCameraPermission] = useState();
     const [cameraOpened, setCameraOpened] = useState(false); 
     const [faceData, setfaceData] = useState([]);
     const [blinkCount, addBlinkCount] = useState(0);
+    const [scanScore, setScanScore] = useState(0);
     const [inputData, setInputData] = useState('');
     const [databaseData, setDatabaseData] = useState([]);
     const [sendScanData, setSendScanData] = useState(false);
+    const [scanInstructionsIndex, setScanInstructionsIndex] = useState(0);
+    const [timeCounter, setTimeCounter] = useState(0);
 
     useEffect(() => {
         // Getting camera permision
         (async () => {
           const { status } = await Camera.requestCameraPermissionsAsync();
           setCameraPermission(status === 'granted');
-          console.log('Se ejecuta useEffect con status = ' + status)
+          //console.log('Se ejecuta useEffect con status = ' + status)
         })();
 
         // Database gathering
@@ -50,7 +55,7 @@ const HomeScreen = () => {
                 setSendScanData(true); // After x time we send data gathered to the database
                 console.log("Se ejecuta el setScan Data")
                 setCameraOpened(false);
-            }, 5000)
+            }, 20000)
         }
       }
     
@@ -74,8 +79,21 @@ const HomeScreen = () => {
         }
       }
 
-      const handleFacesDetected = ({ faces }) => {
-        if(faces.length > 0 && faceData.length > 0){
+
+    const handleFacesDetected = ({ faces }) => {
+
+        if(timeCounter < 40){
+            setTimeCounter(timeCounter+1)
+        } else { // If timer is x it means that x seconds went by, now we perform scan
+            console.log("timeCounter is 40, checking data!");
+            if(scanInstructionsIndex + 1 >= scanIntructions.length){
+                setScanInstructionsIndex(0);
+            } else setScanInstructionsIndex(scanInstructionsIndex + 1)
+            setTimeCounter(0);
+        } 
+
+        // CHECK IF USER BLINKS
+        if(faces.length > 0 && faceData.length > 0 && timeCounter !== 40){
           let tempEyesShut1 = faces[0].rightEyeOpenProbability < 0.4 && faces[0].leftEyeOpenProbability < 0.4
           let tempEyesShut2 = faceData[0].rightEyeOpenProbability < 0.4 && faceData[0].leftEyeOpenProbability < 0.4
           if(tempEyesShut1 === false && tempEyesShut2 == true){
@@ -83,8 +101,45 @@ const HomeScreen = () => {
             console.log('ENTRA: blinkcount es '+ blinkCount);
           }
         }
+
+
+        // Check user face data to see if it matches instruction every 40 cycles which is roughly 2 seconds
+        if(timeCounter === 40 && faces.length > 0){
+            //console.log("Timecounter is 40 yesssssssss")
+            const eyesShut = faces[0].rightEyeOpenProbability < 0.4 && faces[0].leftEyeOpenProbability < 0.4
+            const smiling = faces[0].smilingProbability > 0.9
+            const leftEyeShut = !eyesShut && faces[0].rightEyeOpenProbability < 0.4  // Eyes are not both closed and left is closed
+            const rightEyeShut = !eyesShut && faces[0].leftEyeOpenProbability < 0.4  // Eyes are not both closed and left is closed
+
+            switch(scanIntructions[scanInstructionsIndex]){
+                case "Close left eye":
+                    console.log("Close left eye switch statement");
+                    console.log("User was closing left eye: " + leftEyeShut)
+                    if(leftEyeShut) setScanScore(scanScore + 1) // if user is closing left eye we increase score by 1
+                    break;
+                case "Close right eye":
+                    console.log("Close right eye switch statement");
+                    console.log("User was closing right eye: " + rightEyeShut)
+                    if(rightEyeShut) setScanScore(scanScore + 1) // if user is closing right eye we increase score by 1
+                    break;
+                case "Close both eyes":
+                    console.log("Close both eyes switch statement");
+                    console.log("User was shutting both eyes: " + eyesShut)
+                    if(eyesShut) setScanScore(scanScore + 1) // if user is closing both eyes we increase score by 1
+                    break;
+                default:
+                    console.log("Smile switch statement")
+                    console.log("User was smiling: " + smiling)
+                    if(smiling) setScanScore(scanScore + 1) // if user is smiling we increase score by 1
+                    break;
+            }
+        }
+
+
+
+        //console.log("Time counter is "+timeCounter)
         setfaceData(faces);
-        //console.log(faces)
+        //console.log(faces);
       }
 
     const navigation = useNavigation()
@@ -104,7 +159,7 @@ const HomeScreen = () => {
                 email: auth.currentUser?.email,
                 timeStamp: '04/16/2022',
                 blinkCount,
-                faceScore: 87
+                scanScore
             }).then(data => {
                 console.log("data added successfully!")
             }).catch(e => {
@@ -113,6 +168,8 @@ const HomeScreen = () => {
         }
         setInputData("")
         addBlinkCount(0)
+        setScanScore(0)
+        setScanInstructionsIndex(0)
     }
 
     const handleSendScanData = () => {
@@ -138,7 +195,6 @@ const HomeScreen = () => {
                         <Text>Welcome {auth.currentUser?.email}!</Text>
 
                         <TextInput value={inputData} onChangeText={text => setInputData(text)} placeholder="Enter data" />
-                        <Text onPress={() => handleInputSend()} >Send data</Text>
                         {sendScanData ? handleSendScanData() : null}
 
                         <TouchableOpacity onPress={() => handleOpenCamera()} style={[styles.button, styles.buttonStartScan]} >
@@ -155,9 +211,9 @@ const HomeScreen = () => {
                                     <View key={data.id} style={styles.scanResult} >
                                         <Text >Text: {data.text}</Text>
                                         <Text >Blink Count: {data.blinkCount}</Text>
-                                        <Text >Score: {data.faceScore}</Text>
+                                        <Text >Score: {data.scanScore}</Text>
                                         <Text >Date: {data.timeStamp}</Text>
-                                        <Text style={getScoreColor(data.blinkCount)} >{data.blinkCount}</Text>
+                                        <Text style={getScoreColor(data.scanScore)} >{data.scanScore}</Text>
                                     </View>
                                     )
                                 } else return null
@@ -182,12 +238,15 @@ const HomeScreen = () => {
                         mode: FaceDetector.FaceDetectorMode.fast,
                         detectLandmarks: FaceDetector.FaceDetectorLandmarks.none,
                         runClassifications: FaceDetector.FaceDetectorClassifications.all,
-                        minDetectionInterval: 100,
+                        minDetectionInterval: 50,
                         tracking: true
                         }}
                         type={Camera.Constants.Type.front} >
                         {/*console.log('HEREEEEEEEEEEEEEEE')*/}
                     </Camera>
+                    <View style={styles.scanInstructionsContainer} >
+                        <Text style={{fontSize: 32, color: 'white'}} >{scanIntructions[scanInstructionsIndex]}</Text>
+                    </View>
                     <View style={styles.cameraData} >
                         {getFaceDataView()}
                     </View>
@@ -230,7 +289,7 @@ const styles = StyleSheet.create({
         marginBottom: 12
     },
     startScanContainer: {
-        backgroundColor: 'white',
+        backgroundColor: 'red',
         width: '100%',
         height: 164,
         maxHeight: 164,
@@ -261,7 +320,7 @@ const styles = StyleSheet.create({
     },
     faceScore: {
         position: 'absolute',
-        color: 'black',
+        color: '#535353',
         top: 24,
         right: 20,
         padding: 12,
@@ -290,7 +349,7 @@ const styles = StyleSheet.create({
         borderColor: '#D8CF26'
     },
     resultRed: {
-        backgroundColor: '#FFBCBC',
+        backgroundColor: '#FFD3D3',
         borderColor: 'red'
     },
 
@@ -303,6 +362,16 @@ const styles = StyleSheet.create({
     },
     camera: {
         aspectRatio: 3/4
+    },
+    scanInstructionsContainer: {
+        position: 'absolute',
+        left: 56,
+        top: 450,
+        height: 60,
+        width: 300,
+        justifyContent: 'center',
+        alignItems: 'center',
+        opacity: 0.5
     },
     faces: {
 
