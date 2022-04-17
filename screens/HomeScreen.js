@@ -100,6 +100,7 @@ const HomeScreen = () => {
         if(inputData !== ""){
             await addDoc(collection(db, "scans"), {
                 text: inputData,
+                email: auth.currentUser?.email,
                 timeStamp: '04/16/2022',
                 blinkCount,
                 faceScore: 87
@@ -116,7 +117,7 @@ const HomeScreen = () => {
 
             !cameraOpened ? (
                 <View style={styles.container} >
-                
+
                     <View style={styles.startScanContainer} >
                         <Text>Welcome {auth.currentUser?.email}!</Text>
 
@@ -129,10 +130,11 @@ const HomeScreen = () => {
                     </View>
 
                     <View style={styles.scanResultsContainer}  >
-                        <Text style={{fontSize: 18}} >Previous Scans</Text>
+                        <Text style={{fontSize: 18, marginBottom: 10}} >Previous Scans</Text>
                         <ScrollView >
                             {databaseData.length !== 0 ? databaseData.map(data => {
-                                return (
+                                if(data.email === auth.currentUser?.email){
+                                    return (
                                     <View key={data.id} style={styles.scanResult} >
                                         <Text >Text: {data.text}</Text>
                                         <Text >Blink Count: {data.blinkCount}</Text>
@@ -140,7 +142,8 @@ const HomeScreen = () => {
                                         <Text >Time: {data.timeStamp}</Text>
                                         <Text style={styles.faceScore} >{data.blinkCount}</Text>
                                     </View>
-                                )
+                                    )
+                                } else return null
                             }) : (
                                 <View style={styles.noPreviousScans} >
                                     <Text style={{fontSize: 20, opacity: 0.3}} >No previous scans</Text>
