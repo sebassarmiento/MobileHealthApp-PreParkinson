@@ -69,10 +69,10 @@ export default LoginScreen
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#F6F6FF',
+        backgroundColor: '#F1F1F1',
         flexGrow: 1,
         padding: 24,
-        justifyContent: 'center'
+        justifyContent: 'center',
     },
     inputContainer: {
         backgroundColor: 'transparent'
@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 18,
         borderRadius: 4,
-        fontSize: 18,
+        fontSize: 14,
         marginBottom: 6,
         borderWidth: 0.3,
         borderColor: 'gray'

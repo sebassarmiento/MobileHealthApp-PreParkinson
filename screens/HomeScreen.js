@@ -16,6 +16,7 @@ const HomeScreen = () => {
     const [blinkCount, addBlinkCount] = useState(0);
     const [inputData, setInputData] = useState('');
     const [databaseData, setDatabaseData] = useState([]);
+    const [sendScanData, setSendScanData] = useState(false);
 
     useEffect(() => {
         // Getting camera permision
@@ -46,12 +47,11 @@ const HomeScreen = () => {
         setCameraOpened(!cameraOpened);
         if(!cameraOpened){ // If camera was not open that means we are opening it
             setTimeout(() => {
-                console.log("ACA SE EJECUTA EL TIME OUT!!!!!!!!")
-                handleInputSend()
+                setSendScanData(true); // After x time we send data gathered to the database
+                console.log("Se ejecuta el setScan Data")
                 setCameraOpened(false);
             }, 5000)
         }
-        console.log("Camera is " + !cameraOpened)
       }
     
       function getFaceDataView(){
@@ -97,6 +97,7 @@ const HomeScreen = () => {
 
     const handleInputSend = async () => {
         console.log("inputData is " + inputData)
+        console.log("Blink count en handle input data es " + blinkCount)
         if(inputData !== ""){
             await addDoc(collection(db, "scans"), {
                 text: inputData,
@@ -111,6 +112,21 @@ const HomeScreen = () => {
             })
         }
         setInputData("")
+        addBlinkCount(0)
+    }
+
+    const handleSendScanData = () => {
+        console.log("Sending scan data con blink count = " + blinkCount);
+        handleInputSend();
+        setSendScanData(false);
+    }
+
+    const getScoreColor = score => {
+        if(score > 7){
+            return [styles.faceScore, styles.resultGreen]
+        } else if(score > 3) {
+            return [styles.faceScore, styles.resultYellow]
+        } else return [styles.faceScore, styles.resultRed]
     }
 
     return (
@@ -123,6 +139,7 @@ const HomeScreen = () => {
 
                         <TextInput value={inputData} onChangeText={text => setInputData(text)} placeholder="Enter data" />
                         <Text onPress={() => handleInputSend()} >Send data</Text>
+                        {sendScanData ? handleSendScanData() : null}
 
                         <TouchableOpacity onPress={() => handleOpenCamera()} style={[styles.button, styles.buttonStartScan]} >
                             <Text style={styles.buttonText} >Start scan</Text>
@@ -139,8 +156,8 @@ const HomeScreen = () => {
                                         <Text >Text: {data.text}</Text>
                                         <Text >Blink Count: {data.blinkCount}</Text>
                                         <Text >Score: {data.faceScore}</Text>
-                                        <Text >Time: {data.timeStamp}</Text>
-                                        <Text style={styles.faceScore} >{data.blinkCount}</Text>
+                                        <Text >Date: {data.timeStamp}</Text>
+                                        <Text style={getScoreColor(data.blinkCount)} >{data.blinkCount}</Text>
                                     </View>
                                     )
                                 } else return null
@@ -244,7 +261,6 @@ const styles = StyleSheet.create({
     },
     faceScore: {
         position: 'absolute',
-        backgroundColor: '#E0FFE2',
         color: 'black',
         top: 24,
         right: 20,
@@ -254,8 +270,7 @@ const styles = StyleSheet.create({
         width: 60,
         textAlign: 'center',
         fontSize: 24,
-        borderWidth: 1,
-        borderColor: '#2DC136'
+        borderWidth: 1
     },
     noPreviousScans: {
         width: 310,
@@ -264,6 +279,19 @@ const styles = StyleSheet.create({
         marginLeft: 40,
         justifyContent: 'center',
         alignItems: 'center'
+    },
+    // Score color scheme
+    resultGreen: {
+        backgroundColor: '#E0FFE2',
+        borderColor: '#2DC136'
+    },
+    resultYellow: {
+        backgroundColor: '#FFFDDA',
+        borderColor: '#D8CF26'
+    },
+    resultRed: {
+        backgroundColor: '#FFBCBC',
+        borderColor: 'red'
     },
 
     // CAMERA CONTAINER
