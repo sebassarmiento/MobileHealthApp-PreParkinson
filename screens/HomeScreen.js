@@ -28,7 +28,6 @@ const HomeScreen = () => {
         (async () => {
           const { status } = await Camera.requestCameraPermissionsAsync();
           setCameraPermission(status === 'granted');
-          //console.log('Se ejecuta useEffect con status = ' + status)
         })();
 
         // Database gathering
@@ -52,8 +51,7 @@ const HomeScreen = () => {
         setCameraOpened(!cameraOpened);
         if(!cameraOpened){ // If camera was not open that means we are opening it
             setTimeout(() => {
-                setSendScanData(true); // After x time we send data gathered to the database
-                console.log("Se ejecuta el setScan Data")
+                setSendScanData(true); // After 1 minute scan we send data gathered to the database
                 setCameraOpened(false);
             }, 60000)
         }
@@ -84,8 +82,7 @@ const HomeScreen = () => {
 
         if(timeCounter < 40){
             setTimeCounter(timeCounter+1)
-        } else { // If timer is x it means that x seconds went by, now we perform scan
-            //console.log("timeCounter is 40, checking data!");
+        } else { // If timeCounter is 40 it means that 2 seconds went by, now we change gesture asked
             if(scanInstructionsIndex + 1 >= scanIntructions.length){
                 setScanInstructionsIndex(0);
             } else setScanInstructionsIndex(scanInstructionsIndex + 1)
@@ -98,13 +95,11 @@ const HomeScreen = () => {
           let tempEyesShut2 = faceData[0].rightEyeOpenProbability < 0.4 && faceData[0].leftEyeOpenProbability < 0.4
           if(tempEyesShut1 === false && tempEyesShut2 == true){
             addBlinkCount(blinkCount+1);
-            //console.log('ENTRA: blinkcount es '+ blinkCount);
           }
         }
 
         // Check user face data to see if it matches instruction every 40 cycles which is roughly 2 seconds
         if(timeCounter === 40 && faces.length > 0){
-            console.log("TEESSSSTEAAAAAAAAAA")
             const eyesShut = faces[0].rightEyeOpenProbability < 0.4 && faces[0].leftEyeOpenProbability < 0.4
             const smiling = faces[0].smilingProbability > 0.9
             const leftEyeShut = !eyesShut && faces[0].rightEyeOpenProbability < 0.4  // Eyes are not both closed and left is closed
@@ -112,40 +107,31 @@ const HomeScreen = () => {
 
             switch(scanIntructions[scanInstructionsIndex]){
                 case "Close left eye":
-                    //console.log("Close left eye switch statement");
                     console.log("User was closing left eye probability: " + leftEyeShut + " -> " + (1 - faces[0].rightEyeOpenProbability))
-                    if(leftEyeShut) setScanScore(scanScore + (1 - faces[0].rightEyeOpenProbability))
+                    if(!eyesShut) setScanScore(scanScore + (1 - faces[0].rightEyeOpenProbability))
                     break;
                 case "Close right eye":
-                    //console.log("Close right eye switch statement");
                     console.log("User was closing right eye probability: " + rightEyeShut + " -> " + (1 - faces[0].leftEyeOpenProbability))
-                    if(rightEyeShut) setScanScore(scanScore + (1 - faces[0].leftEyeOpenProbability))
+                    if(!eyesShut) setScanScore(scanScore + (1 - faces[0].leftEyeOpenProbability))
                     break;
                 case "Close right eye & smile":
-                    //console.log("Close both eyes switch statement");
                     console.log("User was closing right eye & smiling probability: " + (((1 - faces[0].leftEyeOpenProbability) + faces[0].smilingProbability)/2) )
-                    if(eyesShut) setScanScore(scanScore + (((1 - faces[0].leftEyeOpenProbability) + faces[0].smilingProbability)/2) )
+                    if(!eyesShut) setScanScore(scanScore + (((1 - faces[0].leftEyeOpenProbability) + faces[0].smilingProbability)/2) )
                     break;
                 case "Close left eye & smile":
-                    //console.log("Close both eyes switch statement");
                     console.log("User was closing left eye & smilingprobability: " + (((1 - faces[0].rightEyeOpenProbability) + faces[0].smilingProbability)/2))
-                    if(eyesShut) setScanScore(scanScore + (((1 - faces[0].rightEyeOpenProbability) + faces[0].smilingProbability)/2) )
+                    if(!eyesShut) setScanScore(scanScore + (((1 - faces[0].rightEyeOpenProbability) + faces[0].smilingProbability)/2) )
                     break;
                 case "Normal":
                     break;
                 default:
-                    //console.log("Smile switch statement")
                     console.log("User was smiling probability: " + smiling + " -> " + faces[0].smilingProbability)
                     setScanScore(scanScore + faces[0].smilingProbability) // if user is smiling we increase score by 1
                     break;
             }
         }
 
-
-
-        //console.log("Time counter is "+timeCounter)
         setfaceData(faces);
-        //console.log(faces);
       }
 
     const navigation = useNavigation()
@@ -157,17 +143,19 @@ const HomeScreen = () => {
     }
 
     const handleInputSend = async () => {
-        //console.log("inputData is " + inputData)
-        //console.log("Blink count en handle input data es " + blinkCount)
+
         let time = new Date();
         let timeStamp = (time.getMonth()+1) + "/" + time.getDate() + "/" + time.getFullYear()
+
+        console.log("HERE Scan score sum is " + scanScore)
+        console.log("Scan score average is " + (scanScore/13))
 
         await addDoc(collection(db, "scans"), {
             email: auth.currentUser?.email,
             timeStamp,
             blinkCount,
-            scanScore,
-            adjustedScore: scanScore * (blinkCount < 4 ? 0.9 : (blinkCount < 9 ? 0.95 : 1.05)) * 10
+            scanScore: (scanScore > 13 ? (scanScore/14) : (scanScore/13))*100,
+            adjustedScore: (scanScore > 13 ? (scanScore/14) : (scanScore/13)) * (blinkCount < 4 ? 0.9 : (blinkCount < 9 ? 0.95 : 1.05)) * 100
         }).then(data => {
             console.log("data added successfully!")
         }).catch(e => {
@@ -179,19 +167,20 @@ const HomeScreen = () => {
     }
 
     const handleSendScanData = () => {
-        //console.log("Sending scan data con blink count = " + blinkCount);
         handleInputSend();
         setSendScanData(false);
     }
 
+    // Get color from color scheme to represent good, medium, and bad scores
     const getScoreColor = score => {
-        if(score > 7){
+        if(score > 70){
             return [styles.faceScore, styles.resultGreen]
-        } else if(score > 3) {
+        } else if(score > 30) {
             return [styles.faceScore, styles.resultYellow]
         } else return [styles.faceScore, styles.resultRed]
     }
 
+    // Preform calculations to obtain max, average, and total sum of scans
     const getHighlight = string => {
         if(databaseData.length !== 0){
             switch(string){
@@ -279,9 +268,9 @@ const HomeScreen = () => {
                                     <View key={data.id} style={styles.scanResult} >
                                         <Text >Final score: {data.adjustedScore}</Text>
                                         <Text >Blink Count: {data.blinkCount}</Text>
-                                        <Text >Score: {data.scanScore}</Text>
+                                        <Text >Accuracy: {data.scanScore}</Text>
                                         <Text >Date: {data.timeStamp}</Text>
-                                        <Text style={getScoreColor(data.scanScore)} >{Math.round(data.adjustedScore*10)/10}</Text>
+                                        <Text style={getScoreColor(data.scanScore)} >{data.adjustedScore > 100 ? 100 : Math.round(data.adjustedScore*10)/10}</Text>
                                     </View>
                                     )
                                 } else return null
@@ -310,7 +299,6 @@ const HomeScreen = () => {
                         tracking: true
                         }}
                         type={Camera.Constants.Type.front} >
-                        {/*console.log('HEREEEEEEEEEEEEEEE')*/}
                     </Camera>
                     <View style={styles.scanInstructionsContainer} >
                         <Text style={{fontSize: 32, color: 'white'}} >{scanIntructions[scanInstructionsIndex]}</Text>
