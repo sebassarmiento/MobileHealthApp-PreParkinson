@@ -147,7 +147,7 @@ const HomeScreen = () => {
         let time = new Date();
         let timeStamp = (time.getMonth()+1) + "/" + time.getDate() + "/" + time.getFullYear()
 
-        console.log("HERE Scan score sum is " + scanScore)
+        console.log("Scan score sum is " + scanScore)
         console.log("Scan score average is " + (scanScore/13))
 
         await addDoc(collection(db, "scans"), {
@@ -155,9 +155,18 @@ const HomeScreen = () => {
             timeStamp,
             blinkCount,
             scanScore: (scanScore > 13 ? (scanScore/14) : (scanScore/13))*100,
-            adjustedScore: (scanScore > 13 ? (scanScore/14) : (scanScore/13)) * (blinkCount < 4 ? 0.9 : (blinkCount < 9 ? 0.95 : 1.05)) * 100
+            adjustedScore: ((scanScore > 13 ? (scanScore/14) : (scanScore/13)) * (blinkCount <= 5 ? 0.9 : (blinkCount < 11 ? 0.95 : 1.05)) * 100)
         }).then(data => {
             console.log("data added successfully!")
+            let scoreAmount = Math.round(( ((scanScore > 13 ? (scanScore/14) : (scanScore/13)) * (blinkCount <= 5 ? 0.9 : (blinkCount < 11 ? 0.95 : 1.05)) * 100) * 10)) / 10
+            let blinkMessage = blinkCount > 11 ? " in the normal range." : (blinkCount > 5 ? " a little low but close to the normal range." : " very low.")
+            if(scoreAmount > 70){
+                alert("Congrats! You scored a " + scoreAmount + "% which is very good and you blinked " + blinkCount + " times in a minute which is " + blinkMessage)
+            } else if(scoreAmount > 30){
+                alert("Not bad! You scored a " + scoreAmount + "%, keep practicing to get better. You also blinked " + blinkCount + " times in a minute which is " + blinkMessage)
+            } else {
+                alert("Seems like you had some difficulty. You scored a " + scoreAmount + "% but don't worry you can try again! You also blinked " + blinkCount + " times in a minute which is " + blinkMessage)
+            }
         }).catch(e => {
             console.log("Error: " + e.message)
         })
