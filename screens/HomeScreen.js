@@ -10,7 +10,7 @@ LogBox.ignoreLogs(["Setting a timer"])
 
 const HomeScreen = () => {
 
-    const scanIntructions = ["Close left eye", "Close right eye", "Close both eyes", "Smile"];
+    const scanIntructions = ["Close left eye", "Close right eye", "Smile"];
 
     const [hasCameraPermission, setCameraPermission] = useState();
     const [cameraOpened, setCameraOpened] = useState(false); 
@@ -55,7 +55,7 @@ const HomeScreen = () => {
                 setSendScanData(true); // After x time we send data gathered to the database
                 console.log("Se ejecuta el setScan Data")
                 setCameraOpened(false);
-            }, 20000)
+            }, 30000)
         }
       }
     
@@ -85,7 +85,7 @@ const HomeScreen = () => {
         if(timeCounter < 40){
             setTimeCounter(timeCounter+1)
         } else { // If timer is x it means that x seconds went by, now we perform scan
-            console.log("timeCounter is 40, checking data!");
+            //console.log("timeCounter is 40, checking data!");
             if(scanInstructionsIndex + 1 >= scanIntructions.length){
                 setScanInstructionsIndex(0);
             } else setScanInstructionsIndex(scanInstructionsIndex + 1)
@@ -98,14 +98,13 @@ const HomeScreen = () => {
           let tempEyesShut2 = faceData[0].rightEyeOpenProbability < 0.4 && faceData[0].leftEyeOpenProbability < 0.4
           if(tempEyesShut1 === false && tempEyesShut2 == true){
             addBlinkCount(blinkCount+1);
-            console.log('ENTRA: blinkcount es '+ blinkCount);
+            //console.log('ENTRA: blinkcount es '+ blinkCount);
           }
         }
 
-
         // Check user face data to see if it matches instruction every 40 cycles which is roughly 2 seconds
         if(timeCounter === 40 && faces.length > 0){
-            //console.log("Timecounter is 40 yesssssssss")
+            console.log("TEESSSSTEAAAAAAAAAA")
             const eyesShut = faces[0].rightEyeOpenProbability < 0.4 && faces[0].leftEyeOpenProbability < 0.4
             const smiling = faces[0].smilingProbability > 0.9
             const leftEyeShut = !eyesShut && faces[0].rightEyeOpenProbability < 0.4  // Eyes are not both closed and left is closed
@@ -113,24 +112,24 @@ const HomeScreen = () => {
 
             switch(scanIntructions[scanInstructionsIndex]){
                 case "Close left eye":
-                    console.log("Close left eye switch statement");
-                    console.log("User was closing left eye: " + leftEyeShut)
-                    if(leftEyeShut) setScanScore(scanScore + 1) // if user is closing left eye we increase score by 1
+                    //console.log("Close left eye switch statement");
+                    console.log("User was closing left eye probability: " + leftEyeShut + " -> " + (1 - faces[0].rightEyeOpenProbability))
+                    if(leftEyeShut) setScanScore(scanScore + (1 - faces[0].rightEyeOpenProbability)) // if user is closing left eye we increase score by 1
                     break;
                 case "Close right eye":
-                    console.log("Close right eye switch statement");
-                    console.log("User was closing right eye: " + rightEyeShut)
-                    if(rightEyeShut) setScanScore(scanScore + 1) // if user is closing right eye we increase score by 1
+                    //console.log("Close right eye switch statement");
+                    console.log("User was closing left eye probability: " + rightEyeShut + " -> " + (1 - faces[0].leftEyeOpenProbability))
+                    if(rightEyeShut) setScanScore(scanScore + (1 - faces[0].leftEyeOpenProbability)) // if user is closing right eye we increase score by 1
                     break;
                 case "Close both eyes":
-                    console.log("Close both eyes switch statement");
-                    console.log("User was shutting both eyes: " + eyesShut)
-                    if(eyesShut) setScanScore(scanScore + 1) // if user is closing both eyes we increase score by 1
+                    //console.log("Close both eyes switch statement");
+                    console.log("User was shutting both eyes probability: " + eyesShut + " -> " + faces[0].leftEyeOpenProbability + ", " + faces[0].rightEyeOpenProbability)
+                    if(eyesShut) setScanScore(scanScore + (1 - (faces[0].rightEyeOpenProbability + faces[0].leftEyeOpenProbability)/2 )) // if user is closing both eyes we increase score by 1
                     break;
                 default:
-                    console.log("Smile switch statement")
-                    console.log("User was smiling: " + smiling)
-                    if(smiling) setScanScore(scanScore + 1) // if user is smiling we increase score by 1
+                    //console.log("Smile switch statement")
+                    console.log("User was smiling probability: " + smiling + " -> " + faces[0].smilingProbability)
+                    setScanScore(scanScore + faces[0].smilingProbability) // if user is smiling we increase score by 1
                     break;
             }
         }
@@ -151,29 +150,27 @@ const HomeScreen = () => {
     }
 
     const handleInputSend = async () => {
-        console.log("inputData is " + inputData)
-        console.log("Blink count en handle input data es " + blinkCount)
-        if(inputData !== ""){
-            await addDoc(collection(db, "scans"), {
-                text: inputData,
-                email: auth.currentUser?.email,
-                timeStamp: '04/16/2022',
-                blinkCount,
-                scanScore
-            }).then(data => {
-                console.log("data added successfully!")
-            }).catch(e => {
-                console.log("Error: " + e.message)
-            })
-        }
-        setInputData("")
-        addBlinkCount(0)
-        setScanScore(0)
-        setScanInstructionsIndex(0)
+        //console.log("inputData is " + inputData)
+        //console.log("Blink count en handle input data es " + blinkCount)
+        await addDoc(collection(db, "scans"), {
+            email: auth.currentUser?.email,
+            timeStamp: '04/16/2022',
+            blinkCount,
+            scanScore,
+            adjustedScore: scanScore * (blinkCount < 4 ? 0.9 : (blinkCount < 7 ? 1 : 1.1)) * 10
+        }).then(data => {
+            console.log("data added successfully!")
+        }).catch(e => {
+            console.log("Error: " + e.message)
+        })
+        setInputData("");
+        addBlinkCount(0);
+        setScanScore(0);
+        setScanInstructionsIndex(0);
     }
 
     const handleSendScanData = () => {
-        console.log("Sending scan data con blink count = " + blinkCount);
+        //console.log("Sending scan data con blink count = " + blinkCount);
         handleInputSend();
         setSendScanData(false);
     }
@@ -186,6 +183,50 @@ const HomeScreen = () => {
         } else return [styles.faceScore, styles.resultRed]
     }
 
+    const getHighlight = string => {
+        if(databaseData.length !== 0){
+            switch(string){
+                case "max":
+                    let max = 0;
+                    for(let i = 0; i < databaseData.length; i++){
+                        if(auth.currentUser?.email === databaseData[i].email){
+                            if(max < databaseData[i].adjustedScore) max = databaseData[i].adjustedScore;
+                        }
+                    }
+                    return Math.round(max*10)/10;
+                    break;
+                case "avg-score":
+                    let counterScore = 0;
+                    let counter = 0;
+                    for(let i = 0; i < databaseData.length; i++){
+                        if(auth.currentUser?.email === databaseData[i].email){
+                            counter++;
+                            counterScore += databaseData[i].adjustedScore;
+                        }
+                    }
+                    return Math.round((counterScore / counter)*10)/10;
+                    break;
+                case "avg-blink":
+                    let counterBlink = 0;
+                    let counter2 = 0;
+                    for(let i = 0; i < databaseData.length; i++){
+                        if(auth.currentUser?.email === databaseData[i].email){
+                            counterBlink += databaseData[i].blinkCount;
+                            counter2++;
+                        }
+                    }
+                    return Math.round((counterBlink/counter2)*10)/10;
+                default:
+                    let count = 0;
+                    for(let i = 0; i < databaseData.length; i++){
+                        if(auth.currentUser?.email === databaseData[i].email) count++;
+                    }
+                    return count;
+                    break;
+            }
+        } else return "-";
+    }
+
     return (
 
             !cameraOpened ? (
@@ -194,7 +235,25 @@ const HomeScreen = () => {
                     <View style={styles.startScanContainer} >
                         <Text>Welcome {auth.currentUser?.email}!</Text>
 
-                        <TextInput value={inputData} onChangeText={text => setInputData(text)} placeholder="Enter data" />
+                        <View style={styles.userHighlights} >
+                            <View style={styles.highLightItem} >
+                                <Text style={{fontWeight: 'bold'}} >Max score</Text>
+                                <Text>{getHighlight("max")}</Text>
+                            </View>
+                            <View style={styles.highLightItem} >
+                                <Text style={{fontWeight: 'bold'}} >Avg. score</Text>
+                                <Text>{getHighlight("avg-score")}</Text>
+                            </View>
+                            <View style={styles.highLightItem} >
+                                <Text style={{fontWeight: 'bold'}} >Avg. blinks</Text>
+                                <Text>{getHighlight("avg-blink")}</Text>
+                            </View>
+                            <View style={styles.highLightItem} >
+                                <Text style={{fontWeight: 'bold'}} >Total scans</Text>
+                                <Text>{getHighlight()}</Text>
+                            </View>
+                        </View>
+
                         {sendScanData ? handleSendScanData() : null}
 
                         <TouchableOpacity onPress={() => handleOpenCamera()} style={[styles.button, styles.buttonStartScan]} >
@@ -203,17 +262,17 @@ const HomeScreen = () => {
                     </View>
 
                     <View style={styles.scanResultsContainer}  >
-                        <Text style={{fontSize: 18, marginBottom: 10}} >Previous Scans</Text>
+                        <Text style={{fontSize: 18, marginBottom: 10, color: 'black'}} >Previous Scans</Text>
                         <ScrollView >
                             {databaseData.length !== 0 ? databaseData.map(data => {
                                 if(data.email === auth.currentUser?.email){
                                     return (
                                     <View key={data.id} style={styles.scanResult} >
-                                        <Text >Text: {data.text}</Text>
+                                        <Text >Final score: {data.adjustedScore}</Text>
                                         <Text >Blink Count: {data.blinkCount}</Text>
                                         <Text >Score: {data.scanScore}</Text>
                                         <Text >Date: {data.timeStamp}</Text>
-                                        <Text style={getScoreColor(data.scanScore)} >{data.scanScore}</Text>
+                                        <Text style={getScoreColor(data.scanScore)} >{Math.round(data.adjustedScore*10)/10}</Text>
                                     </View>
                                     )
                                 } else return null
@@ -286,15 +345,40 @@ const styles = StyleSheet.create({
         backgroundColor: '#999'
     },
     buttonStartScan: {
-        marginBottom: 12
+        marginBottom: 12,
+        position: 'absolute',
+        bottom: -12,
+        left: 12,
+        width: '100%'
     },
     startScanContainer: {
-        backgroundColor: 'red',
+        backgroundColor: 'white',
         width: '100%',
-        height: 164,
-        maxHeight: 164,
-        zIndex: 2,
+        height: 193,
+        maxHeight: 193,
         padding: 12
+    },
+
+    // USER HIGHLIGHTS
+
+    userHighlights: {
+        marginTop: 12,
+        backgroundColor: 'white',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        height: 76
+    },
+    highLightItem: {
+        backgroundColor: '#F1F3F4',
+        width: 80,
+        height: '100%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexGrow: 0.20,
+        borderRadius: 4,
+        borderColor: 'gray',
+        borderWidth: 0.3,
+        elevation: 3
     },
 
     // SCAN RESULTS CONTAINER
@@ -303,7 +387,7 @@ const styles = StyleSheet.create({
         width: '100%',
         backgroundColor: 'white',
         height: '100%',
-        maxHeight: '70%',
+        maxHeight: '66%',
         position: 'absolute',
         bottom: 51,
         padding: 12
@@ -311,24 +395,24 @@ const styles = StyleSheet.create({
     scanResult: {
         backgroundColor: '#F1F3F4',
         padding: 12,
-        marginBottom: 6,
+        marginBottom: 12,
         width: '100%',
         borderRadius: 2,
         borderWidth: 0.3,
         borderColor: 'gray',
-        elevation: 1
+        elevation: 3
     },
     faceScore: {
         position: 'absolute',
         color: '#535353',
         top: 24,
         right: 20,
-        padding: 12,
+        paddingTop: 18,
         borderRadius: 30,
         height: 60,
         width: 60,
         textAlign: 'center',
-        fontSize: 24,
+        fontSize: 16,
         borderWidth: 1
     },
     noPreviousScans: {
