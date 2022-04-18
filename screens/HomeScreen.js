@@ -10,7 +10,7 @@ LogBox.ignoreLogs(["Setting a timer"])
 
 const HomeScreen = () => {
 
-    const scanIntructions = ["Close left eye", "Close right eye", "Smile"];
+    const scanIntructions = ["Close left eye", "Close right eye", "Smile", "Normal", "Close left eye & smile", "Normal", "Close right eye & smile", "Normal"];
 
     const [hasCameraPermission, setCameraPermission] = useState();
     const [cameraOpened, setCameraOpened] = useState(false); 
@@ -55,7 +55,7 @@ const HomeScreen = () => {
                 setSendScanData(true); // After x time we send data gathered to the database
                 console.log("Se ejecuta el setScan Data")
                 setCameraOpened(false);
-            }, 30000)
+            }, 60000)
         }
       }
     
@@ -114,17 +114,24 @@ const HomeScreen = () => {
                 case "Close left eye":
                     //console.log("Close left eye switch statement");
                     console.log("User was closing left eye probability: " + leftEyeShut + " -> " + (1 - faces[0].rightEyeOpenProbability))
-                    if(leftEyeShut) setScanScore(scanScore + (1 - faces[0].rightEyeOpenProbability)) // if user is closing left eye we increase score by 1
+                    if(leftEyeShut) setScanScore(scanScore + (1 - faces[0].rightEyeOpenProbability))
                     break;
                 case "Close right eye":
                     //console.log("Close right eye switch statement");
-                    console.log("User was closing left eye probability: " + rightEyeShut + " -> " + (1 - faces[0].leftEyeOpenProbability))
-                    if(rightEyeShut) setScanScore(scanScore + (1 - faces[0].leftEyeOpenProbability)) // if user is closing right eye we increase score by 1
+                    console.log("User was closing right eye probability: " + rightEyeShut + " -> " + (1 - faces[0].leftEyeOpenProbability))
+                    if(rightEyeShut) setScanScore(scanScore + (1 - faces[0].leftEyeOpenProbability))
                     break;
-                case "Close both eyes":
+                case "Close right eye & smile":
                     //console.log("Close both eyes switch statement");
-                    console.log("User was shutting both eyes probability: " + eyesShut + " -> " + faces[0].leftEyeOpenProbability + ", " + faces[0].rightEyeOpenProbability)
-                    if(eyesShut) setScanScore(scanScore + (1 - (faces[0].rightEyeOpenProbability + faces[0].leftEyeOpenProbability)/2 )) // if user is closing both eyes we increase score by 1
+                    console.log("User was closing right eye & smiling probability: " + (((1 - faces[0].leftEyeOpenProbability) + faces[0].smilingProbability)/2) )
+                    if(eyesShut) setScanScore(scanScore + (((1 - faces[0].leftEyeOpenProbability) + faces[0].smilingProbability)/2) )
+                    break;
+                case "Close left eye & smile":
+                    //console.log("Close both eyes switch statement");
+                    console.log("User was closing left eye & smilingprobability: " + (((1 - faces[0].rightEyeOpenProbability) + faces[0].smilingProbability)/2))
+                    if(eyesShut) setScanScore(scanScore + (((1 - faces[0].rightEyeOpenProbability) + faces[0].smilingProbability)/2) )
+                    break;
+                case "Normal":
                     break;
                 default:
                     //console.log("Smile switch statement")
@@ -152,18 +159,20 @@ const HomeScreen = () => {
     const handleInputSend = async () => {
         //console.log("inputData is " + inputData)
         //console.log("Blink count en handle input data es " + blinkCount)
+        let time = new Date();
+        let timeStamp = (time.getMonth()+1) + "/" + time.getDate() + "/" + time.getFullYear()
+
         await addDoc(collection(db, "scans"), {
             email: auth.currentUser?.email,
-            timeStamp: '04/16/2022',
+            timeStamp,
             blinkCount,
             scanScore,
-            adjustedScore: scanScore * (blinkCount < 4 ? 0.9 : (blinkCount < 7 ? 1 : 1.1)) * 10
+            adjustedScore: scanScore * (blinkCount < 4 ? 0.9 : (blinkCount < 9 ? 0.95 : 1.05)) * 10
         }).then(data => {
             console.log("data added successfully!")
         }).catch(e => {
             console.log("Error: " + e.message)
         })
-        setInputData("");
         addBlinkCount(0);
         setScanScore(0);
         setScanInstructionsIndex(0);
@@ -449,13 +458,15 @@ const styles = StyleSheet.create({
     },
     scanInstructionsContainer: {
         position: 'absolute',
-        left: 56,
+        left: 25,
         top: 450,
-        height: 60,
-        width: 300,
+        height: 80,
+        width: 360,
         justifyContent: 'center',
         alignItems: 'center',
-        opacity: 0.5
+        opacity: 0.5,
+        backgroundColor: 'transparent',
+        textAlign: 'center'
     },
     faces: {
 
